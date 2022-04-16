@@ -4,7 +4,25 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
-#define DEBUG
+#define DEBUG 1
+#define TIMER_PRESCALER 80
+#define TIMER_COUNTER_UP true
+#define TIMER_COUNTER_DELAY 1000000  // (Clock/Prescaler) counted units
+#define TIMER_AUTO_RELOAD true
+
+//Timer Variables
+volatile int interruptCounter;
+int totalInterruptCounter;
+hw_timer_t * timer = NULL;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
+//Timer function
+void IRAM_ATTR onTimer() {
+  portENTER_CRITICAL_ISR(&timerMux);
+  interruptCounter++;
+  portEXIT_CRITICAL_ISR(&timerMux);
+ 
+}
 
 //Accelerometer elemet
 Adafruit_MPU6050 mpu;
@@ -41,6 +59,12 @@ void setup(void) {
   while (!Serial)
     delay(10);
 
+  //Timer Inicialization
+  timer = timerBegin(0, TIMER_PRESCALER, TIMER_COUNTER_UP);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, TIMER_COUNTER_DELAY, TIMER_AUTO_RELOAD);
+  timerAlarmEnable(timer);
+
   // Try to initialize!
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
@@ -55,13 +79,18 @@ void setup(void) {
 
 void loop() {
   /* Get new sensor events with the readings */
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  Serial.print(a.acceleration.z);
-  Serial.print(",");
-  Serial.println(temp.temperature);
-
-  Serial.println("");
-  delay(1);
+  if (interruptCounter > 0) {
+    portENTER_CRITICAL(&timerMux);
+    interruptCounter--;
+    portEXIT_CRITICAL(&timerMux);
+    totalInterruptCounter++;
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    Serial.print(a.acceleration.z);
+    Serial.print(",");
+    Serial.print(temp.temperature);
+    Serial.print(",");
+    Serial.print(totalInterruptCounter);
+    Serial.println();
+  }
 }
