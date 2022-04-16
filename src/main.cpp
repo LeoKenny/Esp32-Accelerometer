@@ -4,22 +4,13 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
+#define DEBUG
+
+//Accelerometer elemet
 Adafruit_MPU6050 mpu;
 
-void setup(void) {
-  Serial.begin(115200);
-  while (!Serial)
-    delay(10);
-
-  // Try to initialize!
-  if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(10);
-    }
-  }
-  Serial.println("MPU6050 Found!");
-
+//Accelerometer configuration
+void mpu_config(void){
   mpu.setGyroStandby(true,true,true);           //every gyro axis off
   mpu.setGyroRange(MPU6050_RANGE_250_DEG);
   mpu.setAccelerometerStandby(true,true,false); //Only Z accelerometer axis on
@@ -35,12 +26,29 @@ void setup(void) {
   //mpu.setFsyncSampleOutput();
   //mpu.setInterruptPinLatch();
 
+#ifdef DEBUG
   Serial.print("Sample Divisor:");
   Serial.println(mpu.getSampleRateDivisor());
   Serial.print("Clock:");
   Serial.println(mpu.getClock());
   Serial.print("FSync:");
   Serial.println(mpu.getFsyncSampleOutput());
+#endif
+}
+
+void setup(void) {
+  Serial.begin(115200);
+  while (!Serial)
+    delay(10);
+
+  // Try to initialize!
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  Serial.println("MPU6050 Found!");
 
   delay(100);
 }
