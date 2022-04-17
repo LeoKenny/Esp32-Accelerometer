@@ -4,7 +4,7 @@
 #define DEBUG 1
 #define TIMER_PRESCALER 80
 #define TIMER_COUNTER_UP true
-#define TIMER_COUNTER_DELAY 1000000   // (Clock/Prescaler) counted units
+#define TIMER_COUNTER_DELAY 100000   // (Clock/Prescaler) counted units
 #define TIMER_AUTO_RELOAD true
 #define MPU_ADDR (uint16_t)0x68
 #define CONTINUE_COMM (bool)true
@@ -17,6 +17,7 @@
 #define FIFO_EN 0x23                // FIFO Enable register
 #define INT_ENABLE 0x38             // INT Enable register
 #define INT_STATUS 0x3A             // INT Status register
+#define FIFO_OFLOW_INT 4            // FIFO overvlow status bit
 #define ACCEL_ZOUT_H 0x3F           // High bits from last read accelerometer value
 #define ACCEL_ZOUT_L 0x40           // Low bits from last read accelerometer value
 #define USER_CTRL 0x6A              // User control register
@@ -36,27 +37,34 @@ void IRAM_ATTR onTimer(void) {
   portENTER_CRITICAL_ISR(&timerMux);
   interruptCounter++;
   portEXIT_CRITICAL_ISR(&timerMux);
- 
 }
-/*
+
 int16_t FIFO_count(void){
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(FIFO_COUNT_H);
   Wire.endTransmission(false);
-  Wire.requestFrom((uint16_t)MPU_ADDR, (int8_t)2, (bool)true);
+  Wire.requestFrom(MPU_ADDR, (int8_t)2, CONTINUE_COMM);
   return (int16_t) (Wire.read() << 8 | Wire.read());
 }
 
-void FIFO_read(int16_t count, int16_t * values){
+bool FIFO_overflow(void){
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(INT_STATUS);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_ADDR, (int8_t)1, CONTINUE_COMM);
+  return (bool) ((1 << FIFO_OFLOW_INT) & Wire.read());
+}
+
+void FIFO_read(int16_t count, int16_t* values){
   Wire.beginTransmission(MPU_ADDR);
   Wire.write(FIFO_R_W);
   Wire.endTransmission(false);
-  Wire.requestFrom((uint16_t)MPU_ADDR, (int8_t)count,(bool)true);
+  Wire.requestFrom(MPU_ADDR, (int8_t)count, CONTINUE_COMM);
   for(int16_t i=0; i<count; i+=2){
     values[(i+1)/2] = (int16_t) (Wire.read() << 8 | Wire.read());
   }
 }
-*/
+
 //Accelerometer configuration
 void mpu_config(void){
   Wire.begin();
@@ -176,8 +184,6 @@ void loop() {
     Wire.endTransmission(false);
     Wire.requestFrom(MPU_ADDR, (uint8_t)2, CONTINUE_COMM);
     int16_t AcZ = Wire.read() << 8 | Wire.read(); // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
-    Serial.print(AcZ);
-    Serial.print(",");
-    Serial.println(totalInterruptCounter);
+    Serial.println(AcZ);
   }
 }
